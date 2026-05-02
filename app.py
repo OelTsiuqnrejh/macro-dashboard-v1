@@ -114,3 +114,79 @@ fig_hist.add_trace(go.Scatter(x=[latest_date], y=[current_score], mode="markers"
 
 fig_hist.update_layout(height=500, margin=dict(l=10, r=10, t=10, b=10), plot_bgcolor="rgba(0,0,0,0)", hovermode="x unified", showlegend=False, yaxis=dict(range=[y_min, y_max]))
 st.plotly_chart(fig_hist, use_container_width=True)
+
+# =============================================================================
+# NY SEKTION: MAKRO-REGIM KARTAN (2D Matrix med Momentum)
+# =============================================================================
+st.markdown("---")
+st.subheader("Makro-Regim: Var är vi och vart är vi på väg?")
+st.caption("Visar dagens position jämfört med för 3 månader (60 handelsdagar) sedan. Pilen indikerar riktning.")
+
+# 1. Skapa Axlarna (Y = Tillväxt, X = Likviditet/Stress)
+df["Growth_Axis"] = df["Score_CuAu"] + df["Score_Jobs"]
+df["Liquidity_Axis"] = df["Score_HY"] + df["Score_DXY"] + df["Score_JPY"]
+
+# 2. Ta fram data för "Idag" och "För 3 månader sedan" (ca 60 dagar)
+LOOKBACK_DAYS = 60
+today_data = df.iloc[-1]
+past_data = df.iloc[-(LOOKBACK_DAYS + 1)] if len(df) > LOOKBACK_DAYS else df.iloc[0]
+
+today_date_str = df.index[-1].strftime("%Y-%m-%d")
+past_date_str = df.index[-(LOOKBACK_DAYS + 1)].strftime("%Y-%m-%d") if len(df) > LOOKBACK_DAYS else df.index[0].strftime("%Y-%m-%d")
+
+# 3. Bygg Plotly-grafen
+fig_regime = go.Figure()
+
+# Lägg till rutorna (kvadranterna) med svag färg för tydlighet
+fig_regime.add_hrect(y0=0, y1=5, fillcolor="green", opacity=0.05, layer="below")  # Övre halvan
+fig_regime.add_hrect(y0=-5, y1=0, fillcolor="red", opacity=0.05, layer="below")   # Undre halvan
+
+# Plotta punkten för "För 3 månader sedan"
+fig_regime.add_trace(go.Scatter(
+    x=[past_data["Liquidity_Axis"]], y=[past_data["Growth_Axis"]],
+    mode="markers+text",
+    marker=dict(size=10, color="gray"),
+    text=[f"Då ({past_date_str})"], textposition="bottom center",
+    name="Tidigare Regim", hoverinfo="skip"
+))
+
+# Plotta punkten för "Idag"
+fig_regime.add_trace(go.Scatter(
+    x=[today_data["Liquidity_Axis"]], y=[today_data["Growth_Axis"]],
+    mode="markers+text",
+    marker=dict(size=16, color="#1f4e79", line=dict(width=2, color="white")),
+    text=[f"Idag ({today_date_str})"], textposition="top center",
+    name="Nuvarande Regim"
+))
+
+# Rita Pilen (Momentum)
+fig_regime.add_annotation(
+    x=today_data["Liquidity_Axis"], y=today_data["Growth_Axis"],
+    ax=past_data["Liquidity_Axis"], ay=past_data["Growth_Axis"],
+    xref="x", yref="y", axref="x", ayref="y",
+    showarrow=True, arrowhead=3, arrowsize=1.5, arrowwidth=2, arrowcolor="#1f4e79"
+)
+
+# Fixa Linjerna för X=0 och Y=0
+fig_regime.add_hline(y=0, line_dash="dash", line_color="black", line_width=1)
+fig_regime.add_vline(x=0, line_dash="dash", line_color="black", line_width=1)
+
+# Text i hörnen (Regim-beskrivningar)
+fig_regime.add_annotation(x=3, y=3, text="<b>GULDLOCK</b><br>Hög Tillväxt / God Likviditet", showarrow=False, font=dict(color="green"))
+fig_regime.add_annotation(x=-3, y=3, text="<b>ÖVERHETTNING</b><br>Hög Tillväxt / Finansiell Stress", showarrow=False, font=dict(color="orange"))
+fig_regime.add_annotation(x=-3, y=-3, text="<b>PANIK / KONTRAKTION</b><br>Låg Tillväxt / Finansiell Stress", showarrow=False, font=dict(color="red"))
+fig_regime.add_annotation(x=3, y=-3, text="<b>ÅTERHÄMTNING / STIMULANS</b><br>Låg Tillväxt / God Likviditet", showarrow=False, font=dict(color="blue"))
+
+# Uppdatera layouten så den blir kvadratisk och snygg
+max_range = max(abs(df["Liquidity_Axis"]).max(), abs(df["Growth_Axis"]).max()) + 1
+
+fig_regime.update_layout(
+    xaxis=dict(title="Likviditet & Finansiell Hälsa (X)", range=[-max_range, max_range], zeroline=False),
+    yaxis=dict(title="Makroekonomisk Tillväxt (Y)", range=[-max_range, max_range], zeroline=False),
+    height=600, width=800,
+    showlegend=False,
+    plot_bgcolor="rgba(0,0,0,0)",
+    margin=dict(l=20, r=20, t=20, b=20)
+)
+
+st.plotly_chart(fig_regime, use_container_width=True)
