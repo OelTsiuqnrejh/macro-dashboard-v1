@@ -1,0 +1,39 @@
+name: Daily Macro Update
+
+# KÖR VARJE NATT KL 23:00 UTC (00:00/01:00 Svensk tid) ELLER MANUELLT
+on:
+  schedule:
+    - cron: '0 23 * * 1-5' # Måndag till Fredag kl 23:00
+  workflow_dispatch: # Låter dig trycka på en "Kör nu"-knapp manuellt
+
+jobs:
+  update-data:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy yfinance fredapi
+
+    - name: Run Update Script
+      env:
+        FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      run: |
+        python update_data.py
+
+    - name: Commit and Push changes
+      run: |
+        git config --global user.name 'GitHub Action Bot'
+        git config --global user.email 'action@github.com'
+        git add macro_scored_data.csv
+        git commit -m "Automated macro data update" || exit 0
+        git push
