@@ -3,8 +3,12 @@ name: Daily Macro Update
 # KÖR VARJE NATT KL 23:00 UTC (00:00/01:00 Svensk tid) ELLER MANUELLT
 on:
   schedule:
-    - cron: '0 23 * * 1-5' # Måndag till Fredag kl 23:00
-  workflow_dispatch: # Låter dig trycka på en "Kör nu"-knapp manuellt
+    - cron: '0 23 * * 1-5'
+  workflow_dispatch:
+
+# DETTA LÖSER EXIT CODE 128 (Ger roboten rätt att spara filen)
+permissions:
+  contents: write
 
 jobs:
   update-data:
@@ -12,10 +16,10 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 # Uppdaterad till v4
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5 # Uppdaterad till v5
       with:
         python-version: '3.10'
 
@@ -35,5 +39,11 @@ jobs:
         git config --global user.name 'GitHub Action Bot'
         git config --global user.email 'action@github.com'
         git add macro_scored_data.csv
-        git commit -m "Automated macro data update" || exit 0
-        git push
+        
+        # Kollar om filen faktiskt har ändrats innan den försöker spara
+        if git diff-index --quiet HEAD; then
+          echo "Ingen ny data att spara. Allt är redan uppdaterat!"
+        else
+          git commit -m "Automated macro data update"
+          git push
+        fi
